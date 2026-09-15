@@ -84,6 +84,49 @@ def _watchos_compatibility():
         })
 
 
+def _solarium_fallback():
+    """iOS 26: SolariumForceFallback. iOS 27 DB1→stable: klaster UIKit+SwiftUI+SpringBoard."""
+    from .tweak_classes import BasicPlistTweak
+
+    class _SolariumFallbackTweak(BasicPlistTweak):
+        CLUSTER = {
+            "UISolariumForceFallback": True,
+            "com.apple.SwiftUI.DisableSolarium": True,
+            "SBDisallowGlassButtons": True,
+            "SBDisallowGlassLockScreen": True,
+            "SBDisallowGlassTime": True,
+            "SBDisableGlassDock": True,
+            "SBUseFlatIconsEverywhere": True,
+            "SBDisableSpecularEverywhere": True,
+            "SBDisableWidgetSpecular": True,
+            "SBDisableDockSpecular": True,
+            "SBDisableFolderSpecular": True,
+            "SBExcludeAllClearGlassShadows": True,
+            "SBExcludeDockShadow": True,
+            "SBExcludeSearchShadow": True,
+            "SBDisableSpecularEverywhereUsingLSSAssertion": True,
+            "SolariumDisableOuterRefraction": True,
+            "SolariumAllowHDR": False,
+        }
+
+        def apply_tweak(self, other_tweaks: dict) -> dict:
+            if not self.enabled:
+                return other_tweaks
+            target = other_tweaks.get(self.file_location)
+            if not isinstance(target, dict):
+                target = {}
+                other_tweaks[self.file_location] = target
+            target[self.key] = self.value          # SolariumForceFallback = True
+            target.update(self.CLUSTER)
+            return other_tweaks
+
+    return _SolariumFallbackTweak(
+        FileLocation.globalPreferences,
+        "SolariumForceFallback",
+        value=True,
+    )
+
+
 def _usol(member: TweakID, title: str, kind: Kind = Kind.SWITCH, value=True, *,
           min_value: float = 0, max_value: float = 999, step: float = 1.0,
           description: str = "") -> TweakSpec:
@@ -104,8 +147,15 @@ GP = FileLocation.globalPreferences
 SPECS: tuple[TweakSpec, ...] = (
     # --- Liquid Glass ---
     _t(TweakID.ForceSolariumFallback, Section.LIQUID_GLASS, "Force Solarium Fallback", GP, "SolariumForceFallback",
-       description=QT_TRANSLATE_NOOP("Nugget", "Forces the older Solarium rendering path instead of the newer one. Useful for troubleshooting or for devices where the current Solarium engine misbehaves on iOS 26."),
-       min_version="26.0", max_version="26.99"),
+       description=QT_TRANSLATE_NOOP(
+           "Nugget",
+           "Forces the fallback (pre-Liquid-Glass) rendering path. "
+           "iOS 26 writes SolariumForceFallback. iOS 27 Developer Beta 1 "
+           "through Public Beta and 27.0 stable writes the UIKit + SwiftUI "
+           "+ SpringBoard cluster — the legacy key alone is ignored on 27.",
+       ),
+       min_version="26.0",
+       factory=_solarium_fallback),
     _t(TweakID.IgnoreSolariumLinkedOnCheck, Section.LIQUID_GLASS, "Ignore Solarium Linked-On Check", GP, "com.apple.SwiftUI.IgnoreSolariumLinkedOnCheck",
        description=QT_TRANSLATE_NOOP("Nugget", "Ignores the compile-time (linked-on) SDK version check for Solarium, allowing Liquid Glass features to run that would otherwise be gated by the SDK an app was built with."),
        min_version="26.0"),
@@ -495,7 +545,7 @@ SPECS: tuple[TweakSpec, ...] = (
     _usol(TweakID.StackedImageContainerModifyTransformMaxWidth,
           "Stacked Container Transform Max Width",
           Kind.NUMBER, value=0.0, min_value=0.0, max_value=1000.0, step=1.0,
-          description=QT_TRANSLATE_NOOP("Nugget", "Maximum width threshold for stacked image container transforms. Type inferred; unverified on-device.")),
+          description=QT_TRANSLATE_NOOP("Nugget", "Maximum width threshold for triggering stacked image container transforms. Type inferred; unverified on-device.")),
     _usol(TweakID.StackedImageContainerModifyTransformMinHeight,
           "Stacked Container Transform Min Height",
           Kind.NUMBER, value=0.0, min_value=0.0, max_value=1000.0, step=1.0,
@@ -503,7 +553,7 @@ SPECS: tuple[TweakSpec, ...] = (
     _usol(TweakID.StackedImageContainerModifyTransformMaxHeight,
           "Stacked Container Transform Max Height",
           Kind.NUMBER, value=0.0, min_value=0.0, max_value=1000.0, step=1.0,
-          description=QT_TRANSLATE_NOOP("Nugget", "Maximum height threshold for stacked image container transforms. Type inferred; unverified on-device.")),
+          description=QT_TRANSLATE_NOOP("Nugget", "Maximum height threshold for triggering stacked image container transforms. Type inferred; unverified on-device.")),
 
     # --- SpringBoard ---
     _t(TweakID.LockScreenFootnote, Section.SPRINGBOARD, "Lock Screen Footnote Text",
